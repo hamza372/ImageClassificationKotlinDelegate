@@ -6,11 +6,9 @@ import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.os.SystemClock
 import android.util.Log
-import org.tensorflow.lite.HexagonDelegate
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.gpu.CompatibilityList
 import org.tensorflow.lite.gpu.GpuDelegate
-import org.tensorflow.lite.nnapi.NnApiDelegate
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -20,6 +18,7 @@ import java.util.*
 
 
 class Classifier(assetManager: AssetManager, modelPath: String, labelPath: String, inputSize: Int,context: Context) {
+    private var gpuDelegate: GpuDelegate? = null;
     private var interpreter: Interpreter
     private var lableList: List<String>
     private val INPUT_SIZE: Int = inputSize
@@ -28,6 +27,7 @@ class Classifier(assetManager: AssetManager, modelPath: String, labelPath: Strin
     private val IMAGE_STD = 255.0f
     private val MAX_RESULTS = 3
     private val THRESHOLD = 0.4f
+
 
     data class Recognition(
         var id: String = "",
@@ -44,20 +44,20 @@ class Classifier(assetManager: AssetManager, modelPath: String, labelPath: Strin
         options.setNumThreads(4)
 
 ////        TODO GPU delegate
-//        val compatList = CompatibilityList()
-//        if (compatList.isDelegateSupportedOnThisDevice()) {
-//            // if the device has a supported GPU, add the GPU delegate
-//            Log.d("tryTimeCost","GPU supported")
-//            val delegateOptions: GpuDelegate.Options = compatList.getBestOptionsForThisDevice()
-//            val gpuDelegate = GpuDelegate(delegateOptions)
-//            options.addDelegate(gpuDelegate)
-//
-//        } else {
-//            // if the GPU is not supported, run on 4 threads
-//            options.setNumThreads(4)
-//            Log.d("tryTimeCost","GPU not supported")
-//
-//        }
+        val compatList = CompatibilityList()
+        if (compatList.isDelegateSupportedOnThisDevice()) {
+            // if the device has a supported GPU, add the GPU delegate
+            Log.d("tryTimeCost","GPU supported")
+            val delegateOptions: GpuDelegate.Options = compatList.getBestOptionsForThisDevice()
+            gpuDelegate = GpuDelegate(delegateOptions)
+            options.addDelegate(gpuDelegate)
+
+        } else {
+            // if the GPU is not supported, run on 4 threads
+            options.setNumThreads(4)
+            Log.d("tryTimeCost","GPU not supported")
+
+        }
 
 
 //        //TODO NNAPI
@@ -147,6 +147,9 @@ class Classifier(assetManager: AssetManager, modelPath: String, labelPath: Strin
     }
 	
 	public fun close(){
+        if (gpuDelegate != null) {
+            gpuDelegate?.close()
+        }
         if(interpreter != null){
             interpreter.close()
         }
